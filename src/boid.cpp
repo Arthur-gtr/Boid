@@ -25,8 +25,8 @@ Boid::Boid(const std::string &graphicLib, const std::string &computeMethode, uns
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_real_distribution<float> distX(0.0f, static_cast<float>(this->_windowInfo.width));
-    std::uniform_real_distribution<float> distY(0.0f, static_cast<float>(this->_windowInfo.heigth));
+    std::uniform_real_distribution<float> distX(0.0f, static_cast<float>(10000.f));
+    std::uniform_real_distribution<float> distY(0.0f, static_cast<float>(10000.f));
 
     std::uniform_real_distribution<float> distVel(-1.0f, 1.0f);
 

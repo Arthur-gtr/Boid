@@ -1,19 +1,21 @@
 #pragma once
 
-#include "IGraphique.hpp"
+#include "IDisplay.hpp"
 
 #include <SFML/Graphics.hpp>
 
-namespace sfml {
-    class sfml : public IWindow
+namespace graphic {
+    class sfml final : public IDisplay
     {
         public:
-            sfml();
-            ~sfml();
+            sfml() = default;
+            ~sfml() = default;
 
             void openWindow(size_t heigth, size_t width, const std::string &windowName) override;
             void closeWindow() override;
             bool isOpen() const override;
+
+            void handleEvent() override;
 
             void clear() override;
             void draw(const Bird& entity) override;
@@ -22,17 +24,4 @@ namespace sfml {
             sf::RenderWindow _window;
 
     };
-
-    class Sprite 
-    {
-        sf::Sprite sprite;
-    };
-
-    sfml::sfml()
-    {
-    }
-
-    sfml::~sfml()
-    {
-    }
 }

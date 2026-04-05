@@ -5,15 +5,15 @@
 
 int main(void)
 {
-    Boid Boid(1);
+    std::cout << "Start boid\n"; 
+    Boid Boid("SFML", "TKT", 1);
     try 
     {
+        std::cout << "Run  Boid\n";
         Boid.runBoid(); 
     }
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
     }
-    
-
 }

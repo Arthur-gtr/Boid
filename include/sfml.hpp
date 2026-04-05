@@ -11,7 +11,7 @@ namespace graphic {
             sfml() = default;
             ~sfml() = default;
 
-            void openWindow(size_t heigth, size_t width, const std::string &windowName) override;
+            void openWindow(size_t heigth, size_t width, const std::string &windowName, windowInfo &windowInfo) override;
             void closeWindow() override;
             bool isOpen() const override;
 

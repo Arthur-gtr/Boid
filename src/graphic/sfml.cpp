@@ -5,8 +5,10 @@
 
 #include <SFML/Graphics.hpp>
 
-void graphic::sfml::openWindow(size_t heigth, size_t width, const std::string &windowName)
+void graphic::sfml::openWindow(size_t heigth, size_t width, const std::string &windowName, windowInfo &windowInfo)
 {
+    windowInfo.heigth = heigth;
+    windowInfo.width = width;
     _window.create(sf::VideoMode({static_cast<unsigned int>(width), static_cast<unsigned int>(heigth)}), windowName);
 }
 

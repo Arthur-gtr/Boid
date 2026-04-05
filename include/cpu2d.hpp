@@ -12,6 +12,6 @@ namespace simulate
     {
         public:
             ~CPU2D() = default; 
-            void update(std::vector<Bird>& boid);
+            void update(std::vector<Bird>& boid, const windowInfo &windowInfo);
     };
 }

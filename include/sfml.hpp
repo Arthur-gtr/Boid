@@ -21,6 +21,9 @@ namespace graphic {
             void draw(const Bird& entity) override;
             void display() override;
         private:
+            void initBirdSprite();
+            sf::CircleShape boidShape;
+
             sf::RenderWindow _window;
 
     };

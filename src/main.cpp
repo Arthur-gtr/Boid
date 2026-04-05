@@ -6,7 +6,7 @@
 int main(void)
 {
     std::cout << "Start boid\n"; 
-    Boid Boid("SFML", "TKT", 1);
+    Boid Boid("SFML", "CPU-2D", 100);
     try 
     {
         std::cout << "Run  Boid\n";

@@ -10,6 +10,8 @@ void graphic::sfml::openWindow(size_t heigth, size_t width, const std::string &w
     windowInfo.heigth = heigth;
     windowInfo.width = width;
     _window.create(sf::VideoMode({static_cast<unsigned int>(width), static_cast<unsigned int>(heigth)}), windowName);
+    _window.setFramerateLimit(60);
+    this->initBirdSprite();
 }
 
 void graphic::sfml::closeWindow()
@@ -29,13 +31,17 @@ void graphic::sfml::clear()
     _window.clear(sf::Color::Black);
 }
 
+void graphic::sfml::initBirdSprite()
+{
+    this->boidShape.setRadius(3.0f);
+    boidShape.setFillColor(sf::Color::White);
+}
+
 void graphic::sfml::draw(const Bird& entity)
 {
-    sf::CircleShape boidShape(3.0f);
-    boidShape.setFillColor(sf::Color::White);
-    boidShape.setPosition({entity.position.x, entity.position.y});
+    this->boidShape.setPosition({entity.position.x, entity.position.y});
     
-    _window.draw(boidShape);
+    _window.draw(this->boidShape);
 }
 
 void graphic::sfml::display()

@@ -18,7 +18,7 @@ class Boid {
         std::vector<Bird> _birdList;
 
         std::unique_ptr<IDisplay> _window;
-        windowInfo windowInfo;
+        windowInfo _windowInfo;
 
         std::unique_ptr<ISimulator> _simulator;
 };

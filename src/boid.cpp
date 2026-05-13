@@ -19,19 +19,22 @@ Boid::Boid(const std::string &graphicLib, const std::string &computeMethode, uns
 
     if (computeMethode == "CPU-2D")
         this->_simulator = std::make_unique<simulate::CPU2D>();
+    else if (computeMethode == "CPU-3D")
+        this->_simulator = std::make_unique<simulate::CPU2D>();
     else
         throw std::runtime_error("Error pls load an avaible simulate method [CPU-2D]");
 
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    std::uniform_real_distribution<float> distX(0.0f, static_cast<float>(10000.f));
-    std::uniform_real_distribution<float> distY(0.0f, static_cast<float>(10000.f));
-
-    std::uniform_real_distribution<float> distVel(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> distX(0.0f, static_cast<float>(1920.f)); 
+    std::uniform_real_distribution<float> distY(0.0f, static_cast<float>(1080.f));
+    
+    std::uniform_real_distribution<float> distZ((computeMethode == "CPU-2D") ? (0.0f, 0.0f) : (0.0f, 1000.0f));
+    std::uniform_real_distribution<float> distVel(-50.0f, 50.0f);
 
     for (size_t i = 0; i < nbBird; i++){
-        Bird bird = {{distX(gen), distY(gen), 0.0f}, {distVel(gen), distVel(gen), 0.0f}};
+        Bird bird = {{distX(gen), distY(gen), distZ(gen)}, {distVel(gen), distVel(gen), distVel(gen)}};
         this->_birdList.push_back(bird);
     }
 }

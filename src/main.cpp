@@ -3,10 +3,14 @@
 
 #include "boid.hpp"
 
-int main(void)
+int main(int ac, char **argv)
 {
+    if (ac != 3){
+        std::cerr << "./usage [SFML] [CPU-2D, CPU-3D]" << std::endl;
+        return EXIT_FAILURE;
+    }
     std::cout << "Start boid\n"; 
-    Boid Boid("SFML", "CPU-2D", 1000);
+    Boid Boid(argv[1], argv[2], 500);
     try 
     {
         std::cout << "Run  Boid\n";
@@ -16,4 +20,5 @@ int main(void)
     {
         std::cerr << e.what() << '\n';
     }
+    return EXIT_SUCCESS;
 }

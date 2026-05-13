@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#define DANGER_ZONE 100
+#define DANGER_ZONE 40
 
 struct Bird {
     glm::vec3 position;

@@ -14,4 +14,11 @@ namespace simulate
             ~CPU2D() = default; 
             void update(std::vector<Bird>& boid, const windowInfo &windowInfon, float elapsedTime) override;
     };
+
+    class CPU3D final : public ISimulator 
+    {
+        public:
+            ~CPU3D() = default; 
+            void update(std::vector<Bird>& boid, const windowInfo &windowInfon, float elapsedTime) override;
+    };
 }

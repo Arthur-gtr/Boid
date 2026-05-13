@@ -4,6 +4,7 @@
 #include "bird.hpp"
 
 #include <SFML/Graphics.hpp>
+#include <algorithm>
 
 void graphic::sfml::openWindow(size_t heigth, size_t width, const std::string &windowName, windowInfo &windowInfo)
 {
@@ -39,7 +40,26 @@ void graphic::sfml::initBirdSprite()
 
 void graphic::sfml::draw(const Bird& entity)
 {
-    this->boidShape.setPosition({entity.position.x, entity.position.y});
+    float cx = _window.getSize().x / 2.0f;
+    float cy = _window.getSize().y / 2.0f;
+
+    float fov = 500.0f;
+    float z = entity.position.z;
+
+    if (z < -fov)
+        return; 
+
+    float scale = fov / (fov + z);
+
+    float projX = cx + (entity.position.x - cx) * scale;
+    float projY = cy + (entity.position.y - cy) * scale;
+    
+    this->boidShape.setPosition({projX, projY});
+
+    this->boidShape.setRadius(3.0f * scale);
+
+    uint8_t colorVal = (std::clamp(255.0f * scale, 50.0f, 255.0f));
+    this->boidShape.setFillColor(sf::Color(colorVal, colorVal, colorVal));
     
     _window.draw(this->boidShape);
 }

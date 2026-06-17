@@ -23,16 +23,19 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
 
     VkSurfaceKHR c_surface;
     if (!window.createVulkanSurface(instance, c_surface))
-        throw std::runtime_error("Window SFML failed");    surface = c_surface;
+        throw std::runtime_error("Window SFML failed: link vulkan and sfml");
+    surface = c_surface;
 
     std::vector<vk::PhysicalDevice> devices = instance.enumeratePhysicalDevices();
     physicalDevice = devices.front();
 
     std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
     queueFamily = 0;
+
     for (uint32_t i = 0; i < queueFamilies.size(); i++) {
         if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) && (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) && physicalDevice.getSurfaceSupportKHR(i, surface)) {
-            queueFamily = i; break;
+            queueFamily = i;
+            break;
         }
     }
 
@@ -62,8 +65,12 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     vk::PhysicalDeviceMemoryProperties memProps = physicalDevice.getMemoryProperties();
     uint32_t memType = 0;
     for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
-        if ((memReq.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal) == vk::MemoryPropertyFlagBits::eDeviceLocal) { memType = i; break; }
+        if ((memReq.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal) == vk::MemoryPropertyFlagBits::eDeviceLocal) {
+                memType = i;
+                break; 
+            }
     }
+
     depthImageMemory = device.allocateMemory({memReq.size, memType});
     device.bindImageMemory(depthImage, depthImageMemory, 0);
     depthImageView = device.createImageView({{}, depthImage, vk::ImageViewType::e2D, depthFmt, {}, {vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}});

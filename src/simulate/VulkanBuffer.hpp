@@ -1,9 +1,9 @@
 #pragma once
-#include "VulkanCore.hpp"
+#include <vulkan/vulkan.hpp>
 
 class VulkanBuffer {
 public:
-    VulkanBuffer(const VulkanCore& core, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+    VulkanBuffer(vk::Device device, vk::PhysicalDevice physicalDevice, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
     ~VulkanBuffer();
 
     VulkanBuffer(const VulkanBuffer&) = delete;

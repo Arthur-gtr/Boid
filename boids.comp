@@ -1,88 +1,46 @@
 #version 450
-
 layout(local_size_x = 256) in;
 
-struct Boid {
-    vec2 position;
-    vec2 velocity;
-};
+struct Boid { vec4 position; vec4 velocity; };
 
 layout(std140, binding = 0) uniform UBO {
-    float deltaT;
-    uint boidCount;
-    float rule1Distance;
-    float rule2Distance;
-    float rule3Distance;
-    float rule1Scale;
-    float rule2Scale;
-    float rule3Scale;
-    float maxSpeed;
+    float deltaT; uint boidCount;
+    float rule1Distance; float rule2Distance; float rule3Distance;
+    float rule1Scale; float rule2Scale; float rule3Scale; float maxSpeed;
 } ubo;
 
-layout(std430, binding = 1) readonly buffer InBoids {
-    Boid inBoids[];
-};
-
-layout(std430, binding = 2) buffer OutBoids {
-    Boid outBoids[];
-};
+layout(std430, binding = 1) readonly buffer InBoids { Boid inBoids[]; };
+layout(std430, binding = 2) buffer OutBoids { Boid outBoids[]; };
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
     if (index >= ubo.boidCount) return;
 
-    vec2 pos = inBoids[index].position;
-    vec2 vel = inBoids[index].velocity;
-
-    vec2 center = vec2(0.0);
-    vec2 separate = vec2(0.0);
-    vec2 align = vec2(0.0);
-    int count1 = 0;
-    int count3 = 0;
+    vec3 pos = inBoids[index].position.xyz;
+    vec3 vel = inBoids[index].velocity.xyz;
+    vec3 center = vec3(0.0); vec3 separate = vec3(0.0); vec3 align = vec3(0.0);
+    int count1 = 0, count3 = 0;
 
     for (uint i = 0; i < ubo.boidCount; i++) {
         if (i == index) continue;
-
-        vec2 otherPos = inBoids[i].position;
-        vec2 otherVel = inBoids[i].velocity;
+        vec3 otherPos = inBoids[i].position.xyz;
+        vec3 otherVel = inBoids[i].velocity.xyz;
         float d = distance(pos, otherPos);
-
-        if (d < ubo.rule1Distance) {
-            center += otherPos;
-            count1++;
-        }
-        if (d < ubo.rule2Distance) {
-            separate -= (otherPos - pos);
-        }
-        if (d < ubo.rule3Distance) {
-            align += otherVel;
-            count3++;
-        }
+        if (d < ubo.rule1Distance) { center += otherPos; count1++; }
+        if (d < ubo.rule2Distance) { separate -= (otherPos - pos); }
+        if (d < ubo.rule3Distance) { align += otherVel; count3++; }
     }
 
-    if (count1 > 0) {
-        center /= float(count1);
-        vel += (center - pos) * ubo.rule1Scale;
-    }
-
+    if (count1 > 0) { center /= float(count1); vel += (center - pos) * ubo.rule1Scale; }
     vel += separate * ubo.rule2Scale;
-
-    if (count3 > 0) {
-        align /= float(count3);
-        vel += align * ubo.rule3Scale;
-    }
-
-    if (length(vel) > ubo.maxSpeed) {
-        vel = normalize(vel) * ubo.maxSpeed;
-    }
-
+    if (count3 > 0) { align /= float(count3); vel += align * ubo.rule3Scale; }
+    if (length(vel) > ubo.maxSpeed) vel = normalize(vel) * ubo.maxSpeed;
     pos += vel * ubo.deltaT;
 
-    if (pos.x < -1.0) pos.x += 2.0;
-    if (pos.x > 1.0) pos.x -= 2.0;
-    if (pos.y < -1.0) pos.y += 2.0;
-    if (pos.y > 1.0) pos.y -= 2.0;
+    if (pos.x < -4.0) pos.x += 8.0; if (pos.x > 4.0) pos.x -= 8.0;
+    if (pos.y < -4.0) pos.y += 8.0; if (pos.y > 4.0) pos.y -= 8.0;
+    if (pos.z < -4.0) pos.z += 8.0; if (pos.z > 4.0) pos.z -= 8.0;
 
-    outBoids[index].position = pos;
-    outBoids[index].velocity = vel;
+    outBoids[index].position = vec4(pos, 1.0);
+    outBoids[index].velocity = vec4(vel, 0.0);
 }

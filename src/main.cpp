@@ -6,7 +6,7 @@
 int main() {
     try {
         sf::WindowBase window(sf::VideoMode({1920, 1080}), "Boids 3D Native Vulkan");
-        VulkanEngine engine(window, 16000);
+        VulkanEngine engine(window, 10000);
 
         while (window.isOpen()) {
             while (const std::optional<sf::Event> event = window.pollEvent()) {

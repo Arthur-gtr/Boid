@@ -34,6 +34,11 @@ void main() {
     if (count1 > 0) { center /= float(count1); vel += (center - pos) * ubo.rule1Scale; }
     vel += separate * ubo.rule2Scale;
     if (count3 > 0) { align /= float(count3); vel += align * ubo.rule3Scale; }
+
+    vec3 origin = vec3(0.0, 0.0, 0.0);
+    float pullStrength = 0.002;
+    vel += (origin - pos) * pullStrength;
+
     if (length(vel) > ubo.maxSpeed) vel = normalize(vel) * ubo.maxSpeed;
     pos += vel * ubo.deltaT;
 

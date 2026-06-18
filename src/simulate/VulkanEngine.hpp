@@ -6,6 +6,11 @@
 #include <memory>
 #include <vector>
 
+struct PushData {
+    glm::mat4 viewProj;
+    glm::vec4 color;
+};
+
 class VulkanEngine {
 public:
     VulkanEngine(sf::WindowBase& window, uint32_t boidCount);

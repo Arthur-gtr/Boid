@@ -10,7 +10,10 @@ int main() {
 
         while (window.isOpen()) {
             while (const std::optional<sf::Event> event = window.pollEvent()) {
-                if (event->is<sf::Event::Closed>()) window.close();
+                if (event->is<sf::Event::Closed>()){
+                    window.close();
+                    throw std::runtime_error("close Window");
+                }
             }
             engine.drawFrame();
         }

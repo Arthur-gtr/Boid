@@ -98,7 +98,7 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     std::vector<vk::DescriptorSetLayoutBinding> gBinds = {{0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex}};
     graphicsSetLayout = device.createDescriptorSetLayout({{}, gBinds});
 
-    vk::PushConstantRange pcRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4));
+    vk::PushConstantRange pcRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushData));
     computePipelineLayout = device.createPipelineLayout({{}, 1, &computeSetLayout});
     graphicsPipelineLayout = device.createPipelineLayout({{}, 1, &graphicsSetLayout, 1, &pcRange});
 
@@ -178,18 +178,39 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
 
 VulkanEngine::~VulkanEngine() {
     device.waitIdle();
-    ubo.reset(); ssboIn.reset(); ssboOut.reset();
-    device.destroySemaphore(imageAvailableSemaphore); device.destroySemaphore(renderFinishedSemaphore); device.destroyFence(inFlightFence);
+    ubo.reset();
+    ssboIn.reset();
+    ssboOut.reset();
+
+    device.destroySemaphore(imageAvailableSemaphore);
+    device.destroySemaphore(renderFinishedSemaphore);
+    device.destroyFence(inFlightFence);
     device.destroyCommandPool(commandPool);
-    device.destroyPipeline(computePipeline); device.destroyPipelineLayout(computePipelineLayout); device.destroyDescriptorSetLayout(computeSetLayout);
-    device.destroyPipeline(graphicsPipeline); device.destroyPipelineLayout(graphicsPipelineLayout); device.destroyRenderPass(renderPass); device.destroyDescriptorSetLayout(graphicsSetLayout);
+    device.destroyPipeline(computePipeline);
+    device.destroyPipelineLayout(computePipelineLayout);
+    device.destroyDescriptorSetLayout(computeSetLayout);
+    device.destroyPipeline(graphicsPipeline);
+    device.destroyPipelineLayout(graphicsPipelineLayout);
+    device.destroyRenderPass(renderPass);
+    device.destroyDescriptorSetLayout(graphicsSetLayout);
     device.destroyDescriptorPool(descriptorPool);
+
     for (auto fb : framebuffers) device.destroyFramebuffer(fb);
-    device.destroyImageView(depthImageView); device.destroyImage(depthImage); device.freeMemory(depthImageMemory);
+
+    device.destroyImageView(depthImageView);
+    device.destroyImage(depthImage);
+    device.freeMemory(depthImageMemory);
+
     for (auto iv : swapchainImageViews) device.destroyImageView(iv);
-    device.destroySwapchainKHR(swapchain); device.destroy();
-    instance.destroySurfaceKHR(surface); instance.destroy();
+    device.destroySwapchainKHR(swapchain);
+    device.destroy();
+    
+    instance.destroySurfaceKHR(surface);
+    instance.destroy();
 }
+
+int x = 0;
+int y = 0;
 
 void VulkanEngine::drawFrame() {
     device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
@@ -216,9 +237,19 @@ void VulkanEngine::drawFrame() {
     glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 2.0f, 6.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)swapchainExtent.width / swapchainExtent.height, 0.1f, 20.0f);
     proj[1][1] *= -1;
-    glm::mat4 viewProj = proj * view;
+    
+    PushData pushData;
 
-    commandBuffer.pushConstants(graphicsPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4), &viewProj);
+    pushData.viewProj = proj * view;
+    pushData.color = glm::vec4(cos(x) , sin(x), sin(x), 1.0f);
+    y++;
+    if (y == 60){
+        x++;
+        y = 0;
+    }
+
+    commandBuffer.pushConstants(graphicsPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushData), &pushData);
+
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipelineLayout, 0, 1, &graphicsSet, 0, nullptr);
     commandBuffer.draw(12, count, 0, 0);
     commandBuffer.endRenderPass();

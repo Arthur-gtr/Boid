@@ -1,7 +1,12 @@
 #version 450
 struct Boid { vec4 position; vec4 velocity; };
+
 layout(std430, binding = 0) readonly buffer Boids { Boid boids[]; };
-layout(push_constant) uniform Push { mat4 viewProj; } push;
+
+layout(push_constant) uniform Push { 
+    mat4 viewProj; 
+    vec4 color; 
+} push;
 
 const vec3 vertices[4] = vec3[](
     vec3(0.0, 0.0, 0.06), vec3(-0.02, -0.02, -0.02),
@@ -24,7 +29,6 @@ void main() {
     vec3 localPos = vertices[indices[gl_VertexIndex]];
     vec3 worldPos = pos + rot * localPos;
     gl_Position = push.viewProj * vec4(worldPos, 1.0);
-    
-    vec3 color = vec3(0.2, 0.8, 1.0);
-    fragColor = color * (0.4 + 0.6 * max(0.0, localPos.z / 0.06));
+
+    fragColor = push.color.rgb * (0.4 + 0.6 * max(0.0, localPos.z / 0.06));
 }

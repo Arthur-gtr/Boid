@@ -18,4 +18,8 @@ struct alignas(16) SimParams {
     float rule2Scale;
     float rule3Scale;
     float maxSpeed;
+    float audioReactivity;
+    float bassLevel;
+    float trebleLevel;
+    float padding;
 };

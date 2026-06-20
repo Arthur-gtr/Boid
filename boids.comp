@@ -4,9 +4,19 @@ layout(local_size_x = 256) in;
 struct Boid { vec4 position; vec4 velocity; };
 
 layout(std140, binding = 0) uniform UBO {
-    float deltaT; uint boidCount;
-    float rule1Distance; float rule2Distance; float rule3Distance;
-    float rule1Scale; float rule2Scale; float rule3Scale; float maxSpeed;
+    float deltaT;
+    uint boidCount;
+    float rule1Distance;
+    float rule2Distance;
+    float rule3Distance;
+    float rule1Scale;
+    float rule2Scale;
+    float rule3Scale;
+    float maxSpeed;
+    float audioReactivity;
+    float bassLevel;
+    float trebleLevel;
+    float padding;
 } ubo;
 
 layout(std430, binding = 1) readonly buffer InBoids { Boid inBoids[]; };
@@ -31,15 +41,23 @@ void main() {
         if (d < ubo.rule3Distance) { align += otherVel; count3++; }
     }
 
-    if (count1 > 0) { center /= float(count1); vel += (center - pos) * ubo.rule1Scale; }
-    vel += separate * ubo.rule2Scale;
-    if (count3 > 0) { align /= float(count3); vel += align * ubo.rule3Scale; }
+    float currentRule1Scale = max(0.0, ubo.rule1Scale - (ubo.bassLevel * 0.05));
+    float currentRule3Scale = ubo.rule3Scale + (ubo.trebleLevel * 0.05);
+    
+    
+    float currentRule2Scale = ubo.rule2Scale + (ubo.bassLevel * 0.5); 
+
+    if (count1 > 0) { center /= float(count1); vel += (center - pos) * currentRule1Scale; }
+    vel += separate * currentRule2Scale;
+    if (count3 > 0) { align /= float(count3); vel += align * currentRule3Scale; }
 
     vec3 origin = vec3(0.0, 0.0, 0.0);
-    float pullStrength = 0.002;
+    float pullStrength = max(0.0, 0.005 - (ubo.bassLevel * 0.01));
     vel += (origin - pos) * pullStrength;
 
-    if (length(vel) > ubo.maxSpeed) vel = normalize(vel) * ubo.maxSpeed;
+    float dynamicMaxSpeed = ubo.maxSpeed + (ubo.bassLevel * 3.0);
+    if (length(vel) > dynamicMaxSpeed) vel = normalize(vel) * dynamicMaxSpeed;
+
     pos += vel * ubo.deltaT;
 
     if (pos.x < -4.0) pos.x += 8.0; if (pos.x > 4.0) pos.x -= 8.0;

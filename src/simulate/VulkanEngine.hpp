@@ -15,7 +15,7 @@ class VulkanEngine {
 public:
     VulkanEngine(sf::WindowBase& window, uint32_t boidCount);
     ~VulkanEngine();
-    void drawFrame();
+    void drawFrame(float bassLevel, float trebleLevel);
 
 private:
     vk::Instance instance;

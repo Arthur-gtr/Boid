@@ -9,7 +9,8 @@
 
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) throw std::runtime_error("file not found: " + filename);
+    if (!file.is_open())
+        throw std::runtime_error("file not found: " + filename);
     size_t fileSize = (size_t)file.tellg();
     std::vector<char> buffer(fileSize);
     file.seekg(0); file.read(buffer.data(), fileSize); file.close();
@@ -23,7 +24,7 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
 
     VkSurfaceKHR c_surface;
     if (!window.createVulkanSurface(instance, c_surface))
-        throw std::runtime_error("Window SFML failed: link vulkan and sfml");
+        throw std::runtime_error("Surface SFML failed");
     surface = c_surface;
 
     std::vector<vk::PhysicalDevice> devices = instance.enumeratePhysicalDevices();
@@ -31,7 +32,6 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
 
     std::vector<vk::QueueFamilyProperties> queueFamilies = physicalDevice.getQueueFamilyProperties();
     queueFamily = 0;
-
     for (uint32_t i = 0; i < queueFamilies.size(); i++) {
         if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) && (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) && physicalDevice.getSurfaceSupportKHR(i, surface)) {
             queueFamily = i;
@@ -64,13 +64,13 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     vk::MemoryRequirements memReq = device.getImageMemoryRequirements(depthImage);
     vk::PhysicalDeviceMemoryProperties memProps = physicalDevice.getMemoryProperties();
     uint32_t memType = 0;
+
     for (uint32_t i = 0; i < memProps.memoryTypeCount; i++) {
         if ((memReq.memoryTypeBits & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal) == vk::MemoryPropertyFlagBits::eDeviceLocal) {
-                memType = i;
-                break; 
-            }
+            memType = i; 
+            break; 
+        }
     }
-
     depthImageMemory = device.allocateMemory({memReq.size, memType});
     device.bindImageMemory(depthImage, depthImageMemory, 0);
     depthImageView = device.createImageView({{}, depthImage, vk::ImageViewType::e2D, depthFmt, {}, {vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1}});
@@ -138,7 +138,7 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     ssboIn = std::make_unique<VulkanBuffer>(device, physicalDevice, ssboSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eDeviceLocal);
     ssboOut = std::make_unique<VulkanBuffer>(device, physicalDevice, ssboSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-    SimParams params = {0.016f, count, 0.4f, 0.2f, 0.4f, 0.005f, 0.02f, 0.01f, 0.5f};
+    SimParams params = {0.016f, count, 0.4f, 0.2f, 0.4f, 0.005f, 0.02f, 0.01f, 0.5f, 0.0f, 0.0f, 0.0f};
     void* uData = ubo->map(); memcpy(uData, &params, sizeof(params)); ubo->unmap();
 
     VulkanBuffer stage(device, physicalDevice, ssboSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
@@ -156,7 +156,7 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     sCmd.copyBuffer(stage.getBuffer(), ssboIn->getBuffer(), 1, &cReg);
     sCmd.end();
     vk::SubmitInfo sInfo(0, nullptr, nullptr, 1, &sCmd, 0, nullptr);
-    queue.submit(1, &sInfo, nullptr); queue.waitIdle();
+    (void)queue.submit(1, &sInfo, nullptr); queue.waitIdle();
     device.freeCommandBuffers(commandPool, 1, &sCmd);
 
     std::vector<vk::DescriptorPoolSize> pSizes = {{vk::DescriptorType::eUniformBuffer, 1}, {vk::DescriptorType::eStorageBuffer, 3}};
@@ -172,7 +172,7 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
         {computeSet, 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &uInfo, nullptr},
         {computeSet, 1, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &iInfo, nullptr},
         {computeSet, 2, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &oInfo, nullptr},
-        {graphicsSet, 0, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &iInfo, nullptr}};
+        {graphicsSet, 0, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &oInfo, nullptr}};
     device.updateDescriptorSets(writes, {});
 }
 
@@ -202,31 +202,34 @@ VulkanEngine::~VulkanEngine() {
     device.freeMemory(depthImageMemory);
 
     for (auto iv : swapchainImageViews) device.destroyImageView(iv);
+
     device.destroySwapchainKHR(swapchain);
     device.destroy();
-    
+
     instance.destroySurfaceKHR(surface);
     instance.destroy();
 }
 
-int x = 0;
-int y = 0;
-
-void VulkanEngine::drawFrame() {
-    device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
+void VulkanEngine::drawFrame(float bassLevel, float trebleLevel) {
+    (void)device.waitForFences(1, &inFlightFence, VK_TRUE, UINT64_MAX);
     uint32_t imgIndex;
-    device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphore, nullptr, &imgIndex);
-    device.resetFences(1, &inFlightFence);
+    (void)device.acquireNextImageKHR(swapchain, UINT64_MAX, imageAvailableSemaphore, nullptr, &imgIndex);
+    (void)device.resetFences(1, &inFlightFence);
+
+    float audioLevel = (bassLevel + trebleLevel) * 0.5f;
+    SimParams currentParams = {0.016f, count, 0.4f, 0.2f, 0.4f, 0.005f, 0.02f, 0.01f, 0.5f, bassLevel, trebleLevel, 0.0f};
+    void* uData = ubo->map();
+    memcpy(uData, &currentParams, sizeof(SimParams));
+    ubo->unmap();
 
     commandBuffer.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, computePipelineLayout, 0, 1, &computeSet, 0, nullptr);
     commandBuffer.dispatch((count + 255) / 256, 1, 1);
 
-    vk::BufferCopy copyReg(0, 0, count * sizeof(Boid));
-    commandBuffer.copyBuffer(ssboOut->getBuffer(), ssboIn->getBuffer(), 1, &copyReg);
-    vk::BufferMemoryBarrier barrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, ssboIn->getBuffer(), 0, VK_WHOLE_SIZE);
-    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eVertexShader, {}, 0, nullptr, 1, &barrier, 0, nullptr);
+    vk::BufferMemoryBarrier barrier(vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, ssboOut->getBuffer(), 0, VK_WHOLE_SIZE);
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexShader, {}, 0, nullptr, 1, &barrier, 0, nullptr);
 
     std::array<vk::ClearValue, 2> cv;
     cv[0].color = vk::ClearColorValue(std::array<float, 4>{0.05f, 0.05f, 0.08f, 1.0f});
@@ -239,25 +242,39 @@ void VulkanEngine::drawFrame() {
     proj[1][1] *= -1;
     
     PushData pushData;
-
     pushData.viewProj = proj * view;
-    pushData.color = glm::vec4(cos(x) , sin(x), sin(x), 1.0f);
-    y++;
-    if (y == 60){
-        x++;
-        y = 0;
-    }
+
+    float targetRed   = std::min(1.0f, 0.1f + bassLevel * 1.5f);
+    float targetGreen = std::min(1.0f, 0.3f + trebleLevel * 2.0f);
+    float targetBlue  = std::max(0.2f, 1.0f - (bassLevel * 0.6f));
+
+    static float smoothRed   = 0.1f;
+    static float smoothGreen = 0.8f;
+    static float smoothBlue  = 1.0f;
+
+    float lerpSpeed = 0.05f;
+    smoothRed   += (targetRed   - smoothRed)   * lerpSpeed;
+    smoothGreen += (targetGreen - smoothGreen) * lerpSpeed;
+    smoothBlue  += (targetBlue  - smoothBlue)  * lerpSpeed;
+
+    pushData.color = glm::vec4(smoothRed, smoothGreen, smoothBlue, 1.0f);
+
 
     commandBuffer.pushConstants(graphicsPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushData), &pushData);
-
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipelineLayout, 0, 1, &graphicsSet, 0, nullptr);
     commandBuffer.draw(12, count, 0, 0);
     commandBuffer.endRenderPass();
+
+    vk::BufferCopy copyReg(0, 0, count * sizeof(Boid));
+    commandBuffer.copyBuffer(ssboOut->getBuffer(), ssboIn->getBuffer(), 1, &copyReg);
+    vk::BufferMemoryBarrier barrierCopy(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, ssboIn->getBuffer(), 0, VK_WHOLE_SIZE);
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader, {}, 0, nullptr, 1, &barrierCopy, 0, nullptr);
+
     commandBuffer.end();
 
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
     vk::SubmitInfo submit(1, &imageAvailableSemaphore, waitStages, 1, &commandBuffer, 1, &renderFinishedSemaphore);
-    queue.submit(submit, inFlightFence);
+    (void)queue.submit(1, &submit, inFlightFence);
     vk::PresentInfoKHR presentInfo(1, &renderFinishedSemaphore, 1, &swapchain, &imgIndex);
-    queue.presentKHR(presentInfo);
+    (void)queue.presentKHR(&presentInfo);
 }

@@ -30,5 +30,8 @@ void main() {
     vec3 worldPos = pos + rot * localPos;
     gl_Position = push.viewProj * vec4(worldPos, 1.0);
 
-    fragColor = push.color.rgb * (0.4 + 0.6 * max(0.0, localPos.z / 0.06));
+    float individualOffset = (float(gl_InstanceIndex % 100) / 100.0) * 0.2 - 0.1;
+    vec3 finalBirdColor = push.color.rgb + vec3(individualOffset);
+
+    fragColor = finalBirdColor * (0.4 + 0.6 * max(0.0, localPos.z / 0.06));
 }

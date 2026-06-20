@@ -15,3 +15,5 @@ clean:
 
 fclean: clean
 	rm -rf build
+
+re: fclean all

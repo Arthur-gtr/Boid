@@ -1,0 +1,31 @@
+#version 450
+layout(local_size_x = 256) in;
+
+struct Boid { vec4 position; vec4 velocity; };
+layout(std140, binding = 0) uniform UBO {
+    float deltaT; uint boidCount;
+} ubo;
+
+layout(std430, binding = 1) readonly buffer InBoids { Boid inBoids[]; };
+layout(std430, binding = 3) buffer CellHeads { uint heads[]; };
+layout(std430, binding = 4) buffer NextBoids  { uint next[]; };
+
+const float GRID_MIN = -4.0;
+const float CELL_SIZE = 0.4;
+const int GRID_DIM = 20;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= ubo.boidCount)
+        return;
+
+    vec3 pos = inBoids[index].position.xyz;
+
+    ivec3 gridPos = ivec3(floor((pos - vec3(GRID_MIN)) / CELL_SIZE));
+    gridPos = clamp(gridPos, ivec3(0), ivec3(GRID_DIM - 1));
+
+    uint cellIndex = gridPos.x + (gridPos.y * GRID_DIM) + (gridPos.z * GRID_DIM * GRID_DIM);
+    
+    uint prevHead = atomicExchange(heads[cellIndex], index);
+    next[index] = prevHead;
+}

@@ -3,6 +3,8 @@ BINARY = BoidSimulate
 all:
 	cmake -B build
 	glslc boids.comp -o boids.comp.spv
+	glslc boids_grid_clear.comp -o boids_grid_clear.comp.spv
+	glslc boids_grid_build.comp -o boids_grid_build.comp.spv
 	glslc boids.vert -o boids.vert.spv
 	glslc boids.frag -o boids.frag.spv
 	make -C build/

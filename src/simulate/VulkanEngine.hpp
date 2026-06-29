@@ -59,4 +59,9 @@ private:
     std::unique_ptr<VulkanBuffer> ssboOut;
 
     uint32_t count;
+
+    std::unique_ptr<VulkanBuffer> ssboCellHeads;
+    std::unique_ptr<VulkanBuffer> ssboNextBoids;
+    vk::Pipeline computeClearPipeline;
+    vk::Pipeline computeBuildPipeline;
 };

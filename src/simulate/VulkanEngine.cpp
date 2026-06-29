@@ -92,7 +92,10 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     std::vector<vk::DescriptorSetLayoutBinding> cBinds = {
         {0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute},
         {1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute},
-        {2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute}};
+        {2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute},
+        {3, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute},
+        {4, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute}
+    };
     computeSetLayout = device.createDescriptorSetLayout({{}, cBinds});
     
     std::vector<vk::DescriptorSetLayoutBinding> gBinds = {{0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex}};
@@ -107,6 +110,18 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     vk::ComputePipelineCreateInfo cpInfo({}, {{}, vk::ShaderStageFlagBits::eCompute, compMod, "main"}, computePipelineLayout);
     computePipeline = device.createComputePipeline(nullptr, cpInfo).value;
     device.destroyShaderModule(compMod);
+
+    auto clearCode = readFile("boids_grid_clear.comp.spv");
+    vk::ShaderModule clearMod = device.createShaderModule({{}, clearCode.size(), reinterpret_cast<const uint32_t*>(clearCode.data())});
+    vk::ComputePipelineCreateInfo clearInfo({}, {{}, vk::ShaderStageFlagBits::eCompute, clearMod, "main"}, computePipelineLayout);
+    computeClearPipeline = device.createComputePipeline(nullptr, clearInfo).value;
+    device.destroyShaderModule(clearMod);
+
+    auto buildCode = readFile("boids_grid_build.comp.spv");
+    vk::ShaderModule buildMod = device.createShaderModule({{}, buildCode.size(), reinterpret_cast<const uint32_t*>(buildCode.data())});
+    vk::ComputePipelineCreateInfo buildInfo({}, {{}, vk::ShaderStageFlagBits::eCompute, buildMod, "main"}, computePipelineLayout);
+    computeBuildPipeline = device.createComputePipeline(nullptr, buildInfo).value;
+    device.destroyShaderModule(buildMod);
 
     auto vertCode = readFile("boids.vert.spv");
     auto fragCode = readFile("boids.frag.spv");
@@ -138,6 +153,10 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     ssboIn = std::make_unique<VulkanBuffer>(device, physicalDevice, ssboSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eDeviceLocal);
     ssboOut = std::make_unique<VulkanBuffer>(device, physicalDevice, ssboSize, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
+    uint32_t numCells = 20 * 20 * 20;
+    ssboCellHeads = std::make_unique<VulkanBuffer>(device, physicalDevice, numCells * sizeof(uint32_t), vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
+    ssboNextBoids = std::make_unique<VulkanBuffer>(device, physicalDevice, count * sizeof(uint32_t), vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal);
+
     SimParams params = {0.016f, count, 0.4f, 0.2f, 0.4f, 0.005f, 0.02f, 0.01f, 0.5f, 0.0f, 0.0f, 0.0f};
     void* uData = ubo->map(); memcpy(uData, &params, sizeof(params)); ubo->unmap();
 
@@ -168,11 +187,17 @@ VulkanEngine::VulkanEngine(sf::WindowBase& window, uint32_t boidCount) : count(b
     vk::DescriptorBufferInfo uInfo(ubo->getBuffer(), 0, sizeof(SimParams));
     vk::DescriptorBufferInfo iInfo(ssboIn->getBuffer(), 0, ssboSize);
     vk::DescriptorBufferInfo oInfo(ssboOut->getBuffer(), 0, ssboSize);
+
+    vk::DescriptorBufferInfo hInfo(ssboCellHeads->getBuffer(), 0, numCells * sizeof(uint32_t));
+    vk::DescriptorBufferInfo nInfo(ssboNextBoids->getBuffer(), 0, count * sizeof(uint32_t));
+
     std::vector<vk::WriteDescriptorSet> writes = {
         {computeSet, 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &uInfo, nullptr},
         {computeSet, 1, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &iInfo, nullptr},
         {computeSet, 2, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &oInfo, nullptr},
-        {graphicsSet, 0, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &oInfo, nullptr}};
+        {graphicsSet, 0, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &oInfo, nullptr},
+        {computeSet, 3, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &hInfo, nullptr},
+        {computeSet, 4, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &nInfo, nullptr}};
     device.updateDescriptorSets(writes, {});
 }
 
@@ -226,10 +251,43 @@ void VulkanEngine::drawFrame(float bassLevel, float trebleLevel) {
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, computePipelineLayout, 0, 1, &computeSet, 0, nullptr);
+
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computeClearPipeline);
+    commandBuffer.dispatch((8000 + 255) / 256, 1, 1);
+
+
+    vk::BufferMemoryBarrier clearToBuildBarrier(
+        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        ssboCellHeads->getBuffer(), 0, VK_WHOLE_SIZE
+    );
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader, {}, 0, nullptr, 1, &clearToBuildBarrier, 0, nullptr);
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computeBuildPipeline);
     commandBuffer.dispatch((count + 255) / 256, 1, 1);
 
-    vk::BufferMemoryBarrier barrier(vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, ssboOut->getBuffer(), 0, VK_WHOLE_SIZE);
-    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexShader, {}, 0, nullptr, 1, &barrier, 0, nullptr);
+    std::array<vk::BufferMemoryBarrier, 2> buildToUpdateBarriers = {
+        vk::BufferMemoryBarrier(
+            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+            ssboCellHeads->getBuffer(), 0, VK_WHOLE_SIZE),
+        vk::BufferMemoryBarrier(
+            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+            ssboNextBoids->getBuffer(), 0, VK_WHOLE_SIZE)
+    };
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader, {}, 0, nullptr, buildToUpdateBarriers.size(), buildToUpdateBarriers.data(), 0, nullptr);
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
+    commandBuffer.dispatch((count + 255) / 256, 1, 1);
+
+    vk::BufferMemoryBarrier computeToGraphicsBarrier(
+        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        ssboOut->getBuffer(), 0, VK_WHOLE_SIZE
+    );
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexShader, {}, 0, nullptr, 1, &computeToGraphicsBarrier, 0, nullptr);
 
     std::array<vk::ClearValue, 2> cv;
     cv[0].color = vk::ClearColorValue(std::array<float, 4>{0.05f, 0.05f, 0.08f, 1.0f});
